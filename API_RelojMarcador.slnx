@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="API_MarcasInconsistencias/API_MarcasInconsistencias.csproj" />
+  <Project Path="PROC1_API/PROC1_API.csproj" Id="e8da35c8-74f9-4246-8478-c96144809cbe" />
 </Solution>
