@@ -1,11 +1,5 @@
 ﻿namespace PROC1_API.Entities
 {
-    public class Inconsistencias
-    {
-        public int ID_Inconsistencia { get; set; }
-        public string Nombre_Inconsistencia { get; set; }
-
-    }
 
     public class ParametrosInconsistencia
     {
@@ -36,6 +30,15 @@
             Referencia = referencia;
         }
     
+    }
+
+
+    public class EjecutarPROC1Request
+    {
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin { get; set; }
+        public int? AreaId { get; set; }
+        public int? UsuarioId { get; set; }
     }
 
 

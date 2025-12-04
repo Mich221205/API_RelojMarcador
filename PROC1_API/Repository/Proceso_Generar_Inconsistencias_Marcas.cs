@@ -1,5 +1,7 @@
 ﻿using Dapper;
 using PROC1_API.Entities;
+using System.Data;
+
 namespace PROC1_API.Repository
 {
     public class Proceso_Generar_Inconsistencias_Marcas
@@ -19,21 +21,19 @@ namespace PROC1_API.Repository
 
 
         // Obtener parámetros de tolerancia desde la base de datos
-        // Reglas mínimas parametrizables: Tolerancia de atraso y salida temprana (En bd está en 10 min)
         public async Task<ParametrosInconsistencia> ObtenerToleranciaAsync()
         {
             using var connection = _dbConnectionFactory.CreateConnection();
 
             connection.Open();
 
-
             var sql = @"SELECT Tolerancia_Atraso, Tolerancia_Salida_Temprana
-                        FROM parametros_inconsistencias
-                        WHERE Activo = '1' LIMIT 1;";
+                         FROM parametros_inconsistencias
+                         WHERE Activo = '1' LIMIT 1;";
 
             var result = await connection.QueryFirstOrDefaultAsync<ParametrosInconsistencia>(sql);
 
-            return result ?? new ParametrosInconsistencia { Tolerancia_Atraso = 10, Tolerancia_Salida_Temprana = 10 }; // Valores por defecto si no se encuentran en la BD
+            return result ?? new ParametrosInconsistencia { Tolerancia_Atraso = 10, Tolerancia_Salida_Temprana = 10 };
         }
 
 
@@ -41,20 +41,19 @@ namespace PROC1_API.Repository
         public async Task<IEnumerable<Usuario>> ObtenerFuncionariosAsync(int? areaId = null, int? usuarioId = null)
         {
             using var connection = _dbConnectionFactory.CreateConnection();
-
             connection.Open();
 
             var sql = @"
-                SELECT 
-                    u.ID_Usuario, 
-                    u.Identificacion, 
-                    u.Nombre, 
-                    u.Apellido_1, 
-                    u.Apellido_2
-                FROM usuario u
-                INNER JOIN usuario_area ua ON u.ID_Usuario = ua.ID_Usuario
-                WHERE (@AreaId IS NULL OR ua.ID_Area = @AreaId)
-                        AND (@UsuarioId IS NULL OR u.ID_Usuario = @UsuarioId);";
+        SELECT 
+            u.ID_Usuario, 
+            u.Identificacion, 
+            u.Nombre, 
+            u.Apellido_1, 
+            u.Apellido_2
+        FROM usuario u
+        INNER JOIN usuario_area ua ON u.ID_Usuario = ua.ID_Usuario
+        WHERE ((@AreaId IS NULL OR @AreaId = 0) OR ua.ID_Area = @AreaId) 
+          AND ((@UsuarioId IS NULL OR @UsuarioId = 0) OR u.ID_Usuario = @UsuarioId);";
 
             return await connection.QueryAsync<Usuario>(sql, new { AreaId = areaId, UsuarioId = usuarioId });
         }
@@ -71,7 +70,7 @@ namespace PROC1_API.Repository
                         INNER JOIN horario h ON dh.ID_Horario = h.ID_Horario
                         WHERE h.ID_Usuario = @IdUsuario AND dh.Dia = @Dia;";
 
-            return await connection.QueryFirstOrDefaultAsync<Detalle_Horarios>(sql, new { IdUsuario = idUsuario, Dia = dia }); // Retorna null si no se encuentra
+            return await connection.QueryFirstOrDefaultAsync<Detalle_Horarios>(sql, new { IdUsuario = idUsuario, Dia = dia });
         }
 
 
@@ -100,25 +99,20 @@ namespace PROC1_API.Repository
 
             // Asuetos y feriados
             var asueto = await connection.ExecuteScalarAsync<int?>(
-
                 "SELECT 1 FROM asuetos_y_feriados WHERE Fecha = @Fecha LIMIT 1;", new { Fecha = fecha });
 
             if (asueto.HasValue) return true;
 
             // Vacaciones
             var vacaciones = await connection.ExecuteScalarAsync<int?>(
-
                 "SELECT 1 FROM vacaciones WHERE ID_Usuario = @IdUsuario AND Estado='Aprobado' AND @Fecha BETWEEN Fecha_Inicio AND Fecha_Fin;",
-
                 new { IdUsuario = idUsuario, Fecha = fecha });
 
             if (vacaciones.HasValue) return true;
 
             // Permisos
             var permiso = await connection.ExecuteScalarAsync<int?>(
-
                 "SELECT 1 FROM permisos WHERE ID_Usuario = @IdUsuario AND Estado='Aprobado' AND @Fecha BETWEEN Fecha_Inicio AND Fecha_Fin;",
-
                 new { IdUsuario = idUsuario, Fecha = fecha });
 
             if (permiso.HasValue) return true;
@@ -137,38 +131,55 @@ namespace PROC1_API.Repository
 
             foreach (var inc in inconsistencias)
             {
-                var existe = await connection.ExecuteScalarAsync<int?>(@"
-                    
+              
+                // Esta subconsulta debe devolver un ID_Inconsistencia válido. Si el Nombre_Inconsistencia no existe, falla.
+                var selectIdSql = $"(SELECT ID_Inconsistencia FROM inconsistencia WHERE Nombre_Inconsistencia = @Tipo)";
+
+                // 1. Verificar si ya existe (Aquí se usa la subconsulta crítica)
+                var existe = await connection.ExecuteScalarAsync<int?>(@$"
                     SELECT 1 FROM inconsistencias_usuario 
                     WHERE Identificacion = @Identificacion 
                         AND DATE(Fecha_Inconsistencia) = @Fecha 
-                            AND ID_Inconsistencia = (SELECT ID_Inconsistencia FROM inconsistencia WHERE Nombre_Inconsistencia = @Tipo);",
-
+                            AND ID_Inconsistencia = {selectIdSql};",
                     new { Identificacion = identificacion, Fecha = inc.Fecha, Tipo = inc.Tipo }, trans);
+
 
                 if (existe == null)
                 {
-                    await connection.ExecuteAsync(@"
-                                    INSERT INTO inconsistencias_usuario 
-                                        (Identificacion, ID_Inconsistencia, Fecha_Inconsistencia, Estado, Detalle, Referencia)
-                                    SELECT 
-                                        @Identificacion, 
-                                        ID_Inconsistencia, 
-                                        @Fecha, 
-                                        'No Justificada',
-                                        @Detalle,
-                                        @Referencia
-                                    FROM inconsistencia 
-                                    WHERE Nombre_Inconsistencia = @Tipo;",
+                    try
+                    {
+                        await connection.ExecuteAsync(@$"
+                            INSERT INTO inconsistencias_usuario 
+                                (Identificacion, ID_Inconsistencia, Fecha_Inconsistencia, Estado, Detalle, Referencia)
+                            SELECT 
+                                @Identificacion, 
+                                ID_Inconsistencia, 
+                                @Fecha, 
+                                'No Justificada',
+                                @Detalle,
+                                @Referencia
+                            FROM inconsistencia 
+                            WHERE Nombre_Inconsistencia = @Tipo;",
+                            new
+                            {
+                                Identificacion = identificacion,
+                                Fecha = inc.Fecha,
+                                Tipo = inc.Tipo,
+                                Detalle = inc.Detalle,
+                                Referencia = inc.Referencia
+                            }, trans);
 
-                                    new
-                                    {
-                                        Identificacion = identificacion,
-                                        Fecha = inc.Fecha,
-                                        Tipo = inc.Tipo,
-                                        Detalle = inc.Detalle,
-                                        Referencia = inc.Referencia
-                                    }, trans);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Re-lanza la excepción para que la transacción no se commitee si algo falla.
+                        throw;
+                    }
+                }
+                else
+                {
+                    // para revisar jajaj
+                    Console.WriteLine($"Log-Repo: Inconsistencia ya existe: {inc.Tipo}");
                 }
             }
 
