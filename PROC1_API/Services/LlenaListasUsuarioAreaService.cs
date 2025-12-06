@@ -1,4 +1,5 @@
-﻿using PROC1_API.Repository;
+﻿using PROC1_API.Entities;
+using PROC1_API.Repository;
 
 namespace PROC1_API.Services
 {
@@ -11,20 +12,56 @@ namespace PROC1_API.Services
             _repo = repo;
         }
 
-        // LISTAR AREAS CON FILTRO OPCIONAL
-        public async Task<IEnumerable<Entities.Area>> ListarAreasAsync(string? filtro)
+        // ============================================================
+        // LISTAR ÁREAS
+        // ============================================================
+        public async Task<BusinessLogicResponse> ListarAreasAsync(string? filtro)
         {
-            return await _repo.ListarAsync(filtro);
+            try
+            {
+                var resultado = await _repo.ListarAsync(filtro);
+
+                return new BusinessLogicResponse
+                {
+                    StatusCode = 200,
+                    Message = "Áreas obtenidas correctamente.",
+                    ResponseObject = resultado
+                };
+            }
+            catch (Exception ex)
+            {
+                return new BusinessLogicResponse
+                {
+                    StatusCode = 500,
+                    Message = $"Error al obtener las áreas: {ex.Message} | STACK: {ex.StackTrace}"
+                };
+            }
         }
 
+        // ============================================================
         // LISTAR FUNCIONARIOS
-        public async Task<IEnumerable<(int Id, string Nombre)>> ListarFuncionariosAsync()
+        // ============================================================
+        public async Task<BusinessLogicResponse> ListarFuncionariosAsync()
         {
-            return await _repo.ListarFuncionariosAsync();
+            try
+            {
+                var resultado = await _repo.ListarFuncionariosAsync();
+
+                return new BusinessLogicResponse
+                {
+                    StatusCode = 200,
+                    Message = "Funcionarios obtenidos correctamente.",
+                    ResponseObject = resultado
+                };
+            }
+            catch (Exception ex)
+            {
+                return new BusinessLogicResponse
+                {
+                    StatusCode = 500,
+                    Message = $"Error al obtener los funcionarios: {ex.Message} | STACK: {ex.StackTrace}"
+                };
+            }
         }
-
-
-
     }
-
 }

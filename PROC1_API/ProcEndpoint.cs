@@ -8,11 +8,12 @@ namespace PROC1_API
     {
         public static void MapPROC1Endpoints(this IEndpointRouteBuilder routes)
         {
-            var group = routes.MapGroup("/api/proc1").WithTags("PROC1 – Inconsistencias");
+            var group = routes.MapGroup("/api/proc1")
+                              .WithTags("PROC1 – Inconsistencias");
 
-            // ---------------------------------------------------------
-            // Ejecutar proceso PROC1
-            // ---------------------------------------------------------
+            // ============================================================
+            // EJECUTAR PROCESO PRINCIPAL PROC1
+            // ============================================================
             group.MapPost("/generar", async (
                 [FromBody] EjecutarPROC1Request request,
                 [FromServices] IProceso_Generar_Inconsistencias_MarcasService service
@@ -31,6 +32,37 @@ namespace PROC1_API
             .WithOpenApi();
 
 
+            // ============================================================
+            // LISTAR ÁREAS (con filtro opcional)
+            // ============================================================
+            group.MapGet("/areas", async (
+                [FromQuery] string? filtro,
+                [FromServices] ILlenaListasUsuarioAreasService service
+            ) =>
+            {
+                // Llama al service (que devuelve BusinessLogicResponse)
+                var response = await service.ListarAreasAsync(filtro);
+
+                // Devolvemos el response con su StatusCode real
+                return Results.Json(response, statusCode: response.StatusCode);
+            })
+            .WithName("ListarAreas")
+            .WithOpenApi();
+
+
+            // ============================================================
+            // LISTAR FUNCIONARIOS
+            // ============================================================
+            group.MapGet("/funcionarios", async (
+                [FromServices] ILlenaListasUsuarioAreasService service
+            ) =>
+            {
+                var response = await service.ListarFuncionariosAsync();
+
+                return Results.Json(response, statusCode: response.StatusCode);
+            })
+            .WithName("ListarFuncionarios")
+            .WithOpenApi();
         }
     }
 }

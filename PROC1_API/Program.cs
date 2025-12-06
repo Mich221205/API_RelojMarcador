@@ -22,6 +22,10 @@ builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddScoped<Proceso_Generar_Inconsistencias_Marcas>();
 builder.Services.AddScoped<IProceso_Generar_Inconsistencias_MarcasService, Proceso_Generar_Inconsistencias_MarcasService>();
 
+builder.Services.AddScoped<LlenaListasUsuarioArea>();
+builder.Services.AddScoped<ILlenaListasUsuarioAreasService, LlenaListasUsuarioAreaService>();
+
+
 var app = builder.Build();
 
 // ==============================================================
