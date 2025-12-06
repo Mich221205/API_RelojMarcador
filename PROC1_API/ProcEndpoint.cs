@@ -29,6 +29,8 @@ namespace PROC1_API
             })
             .WithName("EjecutarProcesoInconsistencias")
             .WithOpenApi();
+
+
         }
     }
 }
