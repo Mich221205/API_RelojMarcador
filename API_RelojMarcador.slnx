@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="API_JefaturaResoluciones/API_JefaturaResoluciones.csproj" Id="5c2a81c4-cefb-4d2a-a39f-c1a89e264b06" />
   <Project Path="API_MarcasInconsistencias/API_MarcasInconsistencias.csproj" />
 </Solution>
