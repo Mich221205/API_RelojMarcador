@@ -46,21 +46,21 @@ namespace PROC1_API.Repository
 
         // LISTAR FUNCIONARIOS
 
-        public async Task<IEnumerable<(int Id, string Nombre)>> ListarFuncionariosAsync()
+        public async Task<IEnumerable<FuncionarioListItem>> ListarFuncionariosAsync()
         {
             using var con = _dbConnectionFactory.CreateConnection();
 
             const string sql = @"
-            SELECT 
-                u.ID_Usuario      AS Id,
-                CONCAT(u.Nombre,' ',u.Apellido_1,' ',u.Apellido_2,' (',u.Identificacion,')') AS Nombre
-            FROM usuario u
-            WHERE u.Estado = 1
-            ORDER BY u.Nombre, u.Apellido_1, u.Apellido_2;";
+        SELECT 
+            u.ID_Usuario AS Id,
+            CONCAT(u.Nombre,' ',u.Apellido_1,' ',u.Apellido_2,' (',u.Identificacion,')') AS Nombre
+        FROM usuario u
+        WHERE u.Estado = 1
+        ORDER BY u.Nombre, u.Apellido_1, u.Apellido_2;";
 
-                        var rows = await con.QueryAsync<(int Id, string Nombre)>(sql);
-                        return rows;
+            return await con.QueryAsync<FuncionarioListItem>(sql);
         }
+
     }
 
 

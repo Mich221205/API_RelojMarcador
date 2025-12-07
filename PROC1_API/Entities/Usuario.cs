@@ -15,4 +15,11 @@
         public bool Estado { get; set; }
 
     }
+
+    public class FuncionarioListItem
+    {
+        public int ID_Usuario { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
 }
