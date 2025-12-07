@@ -68,9 +68,19 @@ namespace API_Autenticacion.Services
                     return resultado;
                 }
 
-                
+       
                 _intentos.TryRemove(u.Identificacion, out _);
 
+       
+                if (u.ID_Rol_Usuario != 2 && u.ID_Rol_Usuario != 3)
+                {
+   
+                    resultado.Estado = LoginEstado.CredencialesInvalidas;
+                    resultado.Mensaje = "Acceso no autorizado. Solo usuarios de rol funcionario o jefatura.";
+                    return resultado;
+                }
+
+                // Login exitoso
                 resultado.Estado = LoginEstado.Exitoso;
                 resultado.Usuario = u;
                 resultado.Mensaje = "Ok";
