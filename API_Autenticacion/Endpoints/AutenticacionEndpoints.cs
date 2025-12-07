@@ -7,8 +7,8 @@ namespace API_Autenticacion.Endpoints
 {
     public static class AutenticacionEndpoints
     {
-        // respuesta solo con el mensaje final
-        public sealed record LoginOkResponse(string Mensaje);
+
+        public sealed record LoginOkResponse(string Mensaje, int IdUsuario, int IdRolUsuario);
 
         public static void MapAutenticacionEndpoints(this WebApplication app)
         {
@@ -39,7 +39,11 @@ namespace API_Autenticacion.Endpoints
                         var nombreCompleto = $"{uOk.Nombre} {uOk.Apellido_1} {uOk.Apellido_2}".Trim();
                         var mensaje = $"Bienvenido, {nombreCompleto}";
 
-                        return Results.Ok(new LoginOkResponse(mensaje));
+                        return Results.Ok(new LoginOkResponse(
+                            Mensaje: mensaje,
+                            IdUsuario: uOk.ID_Usuario,
+                            IdRolUsuario: uOk.ID_Rol_Usuario
+                        ));
                     }
 
                     if (resultado.Estado == LoginEstado.CredencialesInvalidas)
