@@ -91,25 +91,32 @@ public class JefaturaRepository
             new { id = idPermiso }, trx);
 
         await conn.ExecuteAsync(@"
-            UPDATE permisos
-               SET Estado = @decision,
-                   Observaciones = CONCAT(COALESCE(Observaciones, ''), '\n[Jefatura] ', @obs)
-             WHERE ID_Permiso = @idPermiso;
-        ", new { decision, obs = observacion, idPermiso }, trx);
+        UPDATE permisos
+           SET Estado = @decision,
+               Observaciones = CONCAT(COALESCE(Observaciones, ''), '\n[Jefatura] ', @obs)
+         WHERE ID_Permiso = @idPermiso;
+    ", new { decision, obs = observacion, idPermiso }, trx);
 
         if (decision == "Aprobado")
         {
-
-            await conn.ExecuteAsync(
-                "CALL sp_marcar_dias_no_computables(@idUsuario, @fechaIni, @fechaFin);",
-                new
-                {
-                    idUsuario = permiso.ID_Usuario,
-                    fechaIni = permiso.Fecha_Inicio,
-                    fechaFin = permiso.Fecha_Fin
-                },
-                trx
-            );
+            try
+            {
+                await conn.ExecuteAsync(
+                    "CALL sp_marcar_dias_no_computables(@idUsuario, @fechaIni, @fechaFin);",
+                    new
+                    {
+                        idUsuario = permiso.ID_Usuario,
+                        fechaIni = permiso.Fecha_Inicio,
+                        fechaFin = permiso.Fecha_Fin
+                    },
+                    trx
+                );
+            }
+            catch (Exception ex)
+            {
+                // Log si quieres, pero NO rompas la transacción
+                Console.Error.WriteLine($"Error en sp_marcar_dias_no_computables: {ex.Message}");
+            }
         }
 
         var payload = new
@@ -125,12 +132,13 @@ public class JefaturaRepository
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
 
         await conn.ExecuteAsync(@"
-            INSERT INTO bitacora (Fecha_Registro, ID_Usuario, ID_Accion, Descripcion_Accion)
-            VALUES (NOW(), @idJefatura, 5, @json);
-        ", new { idJefatura, json }, trx);
+        INSERT INTO bitacora (Fecha_Registro, ID_Usuario, ID_Accion, Descripcion_Accion)
+        VALUES (NOW(), @idJefatura, 5, @json);
+    ", new { idJefatura, json }, trx);
 
         trx.Commit();
     }
+
 
     public async Task ResolverJustificacionAsync(int idIncUser, string decision, string observacion, int idJefatura)
     {
@@ -176,53 +184,58 @@ public class JefaturaRepository
     {
         using var conn = CreateConnection();
 
-        var sql = @"
+        // Subquery base para NO duplicar código entre sql y countSql
+        var baseSubquery = @"
+        SELECT 'Permiso' AS Tipo,
+               p.ID_Permiso AS IdRegistro,
+               CONCAT(u.Nombre, ' ', u.Apellido_1, ' ', u.Apellido_2) AS Funcionario,
+               p.Fecha_Inicio AS FechaDesde,
+               p.Fecha_Fin AS FechaHasta,
+               p.Estado AS Decision,
+               p.Fecha_Solicitud AS FechaResolucion,
+               p.Observaciones AS Observacion
+        FROM permisos p
+        JOIN usuario u ON u.ID_Usuario = p.ID_Usuario
+        WHERE p.Estado IN ('Aprobado','Rechazado')
+
+        UNION ALL
+
+        SELECT 'Justificación' AS Tipo,
+               iu.ID_Inconsistencia_Usuario AS IdRegistro,
+               CONCAT(u.Nombre, ' ', u.Apellido_1, ' ', u.Apellido_2) AS Funcionario,
+               iu.Fecha_Inconsistencia AS FechaDesde,
+               iu.Fecha_Inconsistencia AS FechaHasta,
+               iu.Estado AS Decision,
+               iu.Fecha_Inconsistencia AS FechaResolucion,
+               iu.Detalle AS Observacion
+        FROM inconsistencias_usuario iu
+        JOIN usuario u ON u.Identificacion = iu.Identificacion
+        WHERE iu.Estado IN ('Aprobada','Rechazada')
+    ";
+
+        var sql = $@"
         SELECT * FROM (
-            SELECT 'Permiso' AS Tipo,
-                   p.ID_Permiso AS IdRegistro,
-                   CONCAT(u.Nombre, ' ', u.Apellido_1, ' ', u.Apellido_2) AS Funcionario,
-                   p.Fecha_Inicio AS FechaDesde,
-                   p.Fecha_Fin AS FechaHasta,
-                   p.Estado AS Decision,
-                   p.Fecha_Solicitud AS FechaResolucion,
-                   p.Observaciones AS Observacion
-            FROM permisos p
-            JOIN usuario u ON u.ID_Usuario = p.ID_Usuario
-            WHERE p.Estado IN ('Aprobado','Rechazado')
-
-            UNION ALL
-
-            SELECT 'Justificación' AS Tipo,
-                   iu.ID_Inconsistencia_Usuario AS IdRegistro,
-                   CONCAT(u.Nombre, ' ', u.Apellido_1, ' ', u.Apellido_2) AS Funcionario,
-                   iu.Fecha_Inconsistencia AS FechaDesde,
-                   iu.Fecha_Inconsistencia AS FechaHasta,
-                   iu.Estado AS Decision,
-                   iu.Fecha_Inconsistencia AS FechaResolucion,
-                   iu.Detalle AS Observacion
-            FROM inconsistencias_usuario iu
-            JOIN usuario u ON u.Identificacion = iu.Identificacion
-            WHERE iu.Estado IN ('Aprobada','Rechazada')
+            {baseSubquery}
         ) t
         WHERE (@tipo IS NULL OR t.Tipo = @tipo)
           AND (@estado IS NULL OR t.Decision = @estado)
-          AND (@idUsuario IS NULL OR t.Funcionario LIKE CONCAT('%', @idUsuario, '%')) 
+          AND (@idUsuario IS NULL OR t.Funcionario LIKE CONCAT('%', @idUsuario, '%'))
           AND (@desde IS NULL OR t.FechaDesde >= @desde)
           AND (@hasta IS NULL OR t.FechaHasta <= @hasta)
         ORDER BY t.FechaResolucion DESC
         LIMIT @skip, @take;
-        ";
+    ";
 
-        var countSql = @"
+        var countSql = $@"
         SELECT COUNT(*) FROM (
-            /* mismo subquery de arriba, pero sin LIMIT */
+            {baseSubquery}
         ) x
         WHERE (@tipo IS NULL OR x.Tipo = @tipo)
           AND (@estado IS NULL OR x.Decision = @estado)
-          AND (@idUsuario IS NULL OR x.Funcionario LIKE CONCAT('%', @idUsuario, '%')) 
+          AND (@idUsuario IS NULL OR x.Funcionario LIKE CONCAT('%', @idUsuario, '%'))
           AND (@desde IS NULL OR x.FechaDesde >= @desde)
           AND (@hasta IS NULL OR x.FechaHasta <= @hasta);
-        ";
+    ";
 
         int skip = (page - 1) * pageSize;
 
@@ -249,3 +262,4 @@ public class JefaturaRepository
         return (items, total);
     }
 }
+
