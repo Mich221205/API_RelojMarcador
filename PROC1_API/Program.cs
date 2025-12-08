@@ -25,6 +25,13 @@ builder.Services.AddScoped<IProceso_Generar_Inconsistencias_MarcasService, Proce
 builder.Services.AddScoped<LlenaListasUsuarioArea>();
 builder.Services.AddScoped<ILlenaListasUsuarioAreasService, LlenaListasUsuarioAreaService>();
 
+// ==============================================================
+// AUTOMATIZACIÓN DEL PROC1
+// ==============================================================
+
+builder.Services.AddHostedService<PROC1_AutomatizadoHostedService>();
+
+
 
 var app = builder.Build();
 
