@@ -1,7 +1,18 @@
-﻿using MarcasInconsistencias.Endpoints;
+﻿using API_MarcasInconsistencias.Repository;
+using API_MarcasInconsistencias.Services;
+using API_MarcasInconsistencias.Endpoints;
+
+using MarcasInconsistencias.Endpoints;
 using MarcasInconsistencias.Repository;
 using MarcasInconsistencias.Services;
+
 using Microsoft.OpenApi;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
+
+
 
 namespace MarcasInconsistencias
 {
@@ -9,7 +20,17 @@ namespace MarcasInconsistencias
     {
         public static void Main(string[] args)
         {
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.ConfigureHttpJsonOptions(options =>
+            {
+                options.SerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+            });
+
+
 
             // ========= SWAGGER (Swashbuckle) =========
             builder.Services.AddEndpointsApiExplorer();
@@ -40,19 +61,38 @@ namespace MarcasInconsistencias
             builder.Services.AddScoped<InconsistenciasRepository>();
             builder.Services.AddScoped<IInconsistenciasService, InconsistenciasService>();
 
+            // 
+            builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
+
+            builder.Services.AddScoped<IUsr5Repository, Usr5Repository>();
+            builder.Services.AddScoped<IUsr5Service, Usr5Service>();
+
+            builder.Services.AddScoped<IUsr6Repository, Usr6Repository>();
+            builder.Services.AddScoped<IUsr6Service, Usr6Service>();
+
+            builder.Services.AddScoped<IUsr7Repository, Usr7Repository>();
+            builder.Services.AddScoped<IUsr7Service, Usr7Service>();
+
+            
+
+
 
             var app = builder.Build();
 
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
             // ========= SWAGGER UI =========
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI(c =>
-                {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1");
-                    c.RoutePrefix = "swagger";
-                });
-            }
+            //if (app.Environment.IsDevelopment())
+            //{
+            //    app.UseSwagger();
+            //    app.UseSwaggerUI(c =>
+            //    {
+            //        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1");
+            //        c.RoutePrefix = "swagger";
+            //    });
+            //}
 
             app.Use(async (context, next) =>
             {
@@ -81,6 +121,13 @@ namespace MarcasInconsistencias
             app.MapControllers();
             app.MapMarcaEndpoints();
             app.MapInconsistenciasEndpoints();
+
+            // 
+            app.MapUsr5Endpoints();
+            app.MapUsr6Endpoints();
+            app.MapUsr7Endpoints();
+
+
 
             app.Run();
         }
