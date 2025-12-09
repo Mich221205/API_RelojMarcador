@@ -1,0 +1,6 @@
+@ADM16_HostAddress = http://localhost:5293
+
+GET {{ADM16_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
