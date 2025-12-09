@@ -62,11 +62,14 @@ namespace MarcasInconsistencias
             builder.Services.AddScoped<IInconsistenciasService, InconsistenciasService>();
 
             // 
-            builder.Services.AddScoped<IResolucionesRepository, ResolucionesRepository>();
-            builder.Services.AddScoped<IResolucionesService, ResolucionesService>();
             builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
-            builder.Services.AddScoped<ISolicitudRepository, SolicitudRepository>();
-            builder.Services.AddScoped<ISolicitudService, SolicitudService>();
+
+            builder.Services.AddScoped<IUsr5Repository, Usr5Repository>();
+            builder.Services.AddScoped<IUsr5Service, Usr5Service>();
+
+            builder.Services.AddScoped<IUsr6Repository, Usr6Repository>();
+            builder.Services.AddScoped<IUsr6Service, Usr6Service>();
+
             builder.Services.AddScoped<IUsr7Repository, Usr7Repository>();
             builder.Services.AddScoped<IUsr7Service, Usr7Service>();
 
@@ -120,8 +123,8 @@ namespace MarcasInconsistencias
             app.MapInconsistenciasEndpoints();
 
             // 
-            app.MapResolucionesEndpoints();
-            app.MapSolicitudEndpoints();
+            app.MapUsr5Endpoints();
+            app.MapUsr6Endpoints();
             app.MapUsr7Endpoints();
 
 
